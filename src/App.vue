@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import Participants from "./components/Participants.vue";
 import Chat from "./components/Chat.vue";
+import { ref } from "vue";
+
+const selectedRecipient = ref("");
+
+const switchConversation = (participant: string) => {
+  selectedRecipient.value = participant;
+}
 </script>
 
 <template>
   <div class="container">
-    <Participants />
-    <Chat />
+    <Participants @switchConversation="switchConversation" />
+    <Chat :selectedRecipient="selectedRecipient" />
   </div>
 </template>
 

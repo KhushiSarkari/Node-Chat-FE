@@ -1,4 +1,74 @@
 <script setup lang="ts">
+import { onMounted, ref, toRefs, watch } from "vue";
+
+const loggedInUser = ref("allan@yopmail.com");
+const message = ref("");
+const conversationId = ref("630330d0623d4a78f76e5e8e");
+const messages = ref([] as any);
+
+const props = defineProps({
+  selectedRecipient: {
+    type: String,
+    required: true,
+  },
+});
+const { selectedRecipient } = toRefs(props);
+
+const createConversation = async () => {
+  const res = await fetch("http://localhost:3000/conversation", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: loggedInUser.value,
+      to: selectedRecipient.value,
+    }),
+  });
+  const data = await res.json();
+  conversationId.value = data._id;
+};
+
+const sendMessage = async () => {
+  if (!conversationId.value) {
+    await createConversation();
+  }
+  let body = {
+    from: loggedInUser.value,
+    conversationId: conversationId.value,
+    message: message.value,
+    to: selectedRecipient.value,
+  };
+  const res = await fetch("http://localhost:3000/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  console.log(data);
+};
+
+const getConversationData = () => {
+  fetch(`http://localhost:3000/messages?id=${conversationId.value}`)
+    .then((res) => res.json())
+    .then((data) => {
+      messages.value = data;
+    });
+};
+
+watch(selectedRecipient, (value) => {
+  if (value) {
+    getConversationData();
+  }
+});
+
+onMounted(() => {
+  if (selectedRecipient.value) {
+    getConversationData();
+  }
+});
 </script>
 
 <template>
@@ -14,17 +84,27 @@
       </div>
     </div>
     <div class="messages">
-      <ul>
-        <li class="clearfix">
+      <ul v-if="messages.length">
+        <li class="clearfix" v-for="message in messages" :key="message._id">
           <div class="message-data align-right">
-            <span class="message-data-time">10:10 AM</span> &nbsp; &nbsp;
+            <span class="message-data-time">{{
+              new Date(message.createdAt)
+            }}</span>
+            &nbsp; &nbsp;
           </div>
-          <div class="message other-message float-right">
-            Hi Vincent, how are you? How is the project coming along?
+          <div
+            :class="[
+              'message',
+              message.from === loggedInUser
+                ? 'my-message'
+                : 'other-message float-right',
+            ]"
+          >
+            {{ message.message }}
           </div>
         </li>
 
-        <li>
+        <!-- <li>
           <div class="message-data">
             <span class="message-data-time">10:12 AM</span>
           </div>
@@ -32,7 +112,7 @@
             Are we meeting today? Project has been already finished and I have
             results to show you.
           </div>
-        </li>
+        </li> -->
       </ul>
     </div>
     <div class="chat-message clearfix">
@@ -41,9 +121,10 @@
         id="message-to-send"
         placeholder="Type your message"
         rows="3"
+        v-model="message"
       ></textarea>
 
-      <button>Send</button>
+      <button @click="sendMessage">Send</button>
     </div>
   </div>
 </template>
